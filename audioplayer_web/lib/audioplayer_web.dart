@@ -5,21 +5,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 class AudioplayerPlugin {
-  html.AudioElement player;
+  html.AudioElement? player;
 
   double lastPosition = 0;
-  String currentUrl;
-  static MethodChannel channel;
+  String? currentUrl;
+  static late MethodChannel channel;
 
-  StreamSubscription durationWatcher;
-  StreamSubscription progressWatcher;
-  StreamSubscription endWatcher;
+  late StreamSubscription durationWatcher;
+  late StreamSubscription progressWatcher;
+  late StreamSubscription endWatcher;
 
   static void registerWith(Registrar registrar) {
     channel = MethodChannel(
       'bz.rxla.flutter/audio',
       const StandardMethodCodec(),
-      registrar.messenger,
+      registrar,
     );
     final AudioplayerPlugin instance = AudioplayerPlugin();
     channel.setMethodCallHandler(instance.handleMethodCall);
@@ -28,22 +28,21 @@ class AudioplayerPlugin {
   Future<dynamic> handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'play':
-        final String url = call.arguments['url'];
+        final String? url = call.arguments['url'];
 
-        if (url == null || url.isEmpty)
-          throw Exception('Invalid audio url : $url');
+        if (url == null || url.isEmpty) throw Exception('Invalid audio url : $url');
 
         if ((player?.paused ?? false) && url == currentUrl) {
           try {
-            player.play();
+            player!.play();
           } catch (err) {
             print('Audioplayer error : $err');
             return 0;
           }
           return;
-        } else if (player != null && !player.paused) {
-          player.pause();
-          player.src = null;
+        } else if (player != null && !player!.paused) {
+          player!.pause();
+          player!.src = "";
           player = null;
           _clearWatchers();
         }
@@ -66,11 +65,11 @@ class AudioplayerPlugin {
       case 'seek':
         final time = num.tryParse('${call.arguments}');
         if (time == null) return 0;
-        _seek(time);
+        _seek(time as int);
         break;
       case 'mute':
         final muted = call.arguments == true;
-        player.muted = muted;
+        player!.muted = muted;
         break;
       default:
         throw PlatformException(
@@ -81,24 +80,23 @@ class AudioplayerPlugin {
     return 1;
   }
 
-  void _play(String url) {
+  void _play(String? url) {
     player = html.AudioElement(url);
 
-    endWatcher = player.onEnded.listen((event) {
+    endWatcher = player!.onEnded.listen((event) {
       channel.invokeMethod("audio.onComplete");
     });
-    durationWatcher = player.onDurationChange.listen((event) {
-      channel.invokeMethod("audio.onStart", (player.duration * 1000).toInt());
+    durationWatcher = player!.onDurationChange.listen((event) {
+      channel.invokeMethod("audio.onStart", (player!.duration * 1000).toInt());
     });
-    progressWatcher = player.onTimeUpdate.listen((event) {
-      channel.invokeMethod(
-          "audio.onCurrentPosition", (player.currentTime * 1000).toInt());
+    progressWatcher = player!.onTimeUpdate.listen((event) {
+      channel.invokeMethod("audio.onCurrentPosition", (player!.currentTime * 1000).toInt());
     });
-    player.play();
+    player!.play();
   }
 
   void _seek(int seconds) {
-    player.currentTime = seconds;
+    player!.currentTime = seconds;
   }
 
   void _clearWatchers() {
